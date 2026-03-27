@@ -1,1 +1,0 @@
-# WindSpot - Application FastAPI

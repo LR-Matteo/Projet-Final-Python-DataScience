@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(python -c \"import json; json.load\\(open\\(''c:/Users/matte/Desktop/DataScience/Projet-Final-Python-DataScience/data/res_cache.json'', encoding=''utf-8''\\)\\)\")",
-      "Bash(python -c \":*)"
-    ]
-  }
-}
