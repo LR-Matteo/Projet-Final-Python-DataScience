@@ -40,10 +40,15 @@ function initSportButtons() {
 async function loadSportProfiles() {
   try {
     const resp = await fetch('/api/sports');
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const contentType = resp.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      throw new Error('Le serveur FastAPI ne semble pas démarré (réponse non-JSON reçue). Lancez : uvicorn app.main:app --reload');
+    }
     const data = await resp.json();
     data.forEach(s => { sportProfiles[s.id] = s; });
   } catch (e) {
-    console.error('Erreur chargement profils sports :', e);
+    console.error('Erreur chargement profils sports :', e.message);
   }
 }
 
@@ -117,8 +122,12 @@ async function doSearch() {
     });
 
     if (!resp.ok) {
-      const err = await resp.json();
-      throw new Error(err.detail || 'Erreur serveur');
+      const contentType = resp.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const err = await resp.json();
+        throw new Error(Array.isArray(err.detail) ? JSON.stringify(err.detail) : (err.detail || 'Erreur serveur'));
+      }
+      throw new Error(`Erreur HTTP ${resp.status} — le serveur FastAPI est-il démarré sur le port 8000 ?`);
     }
 
     const data = await resp.json();

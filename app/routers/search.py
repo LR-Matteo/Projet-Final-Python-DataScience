@@ -70,12 +70,12 @@ async def search_spots(request: SearchRequest):
         scoring = compute_score(weather, sport)
 
         results.append(SpotResult(
-            id=spot["id"],
-            name=spot["name"],
-            type_installation=spot["type_installation"],
-            address=spot.get("address", ""),
-            city=spot.get("city", ""),
-            department=spot.get("department", ""),
+            id=str(spot.get("id") or ""),
+            name=str(spot.get("name") or "Inconnu"),
+            type_installation=str(spot.get("type_installation") or ""),
+            address=str(spot.get("address") or ""),
+            city=str(spot.get("city") or ""),
+            department=str(spot.get("department") or ""),
             latitude=spot["latitude"],
             longitude=spot["longitude"],
             distance_km=spot["distance_km"],
