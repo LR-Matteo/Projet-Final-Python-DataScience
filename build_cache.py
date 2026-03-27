@@ -1,157 +1,104 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WindSpot — Trouvez votre spot idéal</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-  <link rel="stylesheet" href="/static/css/style.css">
-</head>
-<body>
+#!/usr/bin/env python3
+"""
+Script de construction du cache RES local.
+Telecharge les equipements nautiques depuis data.gouv.fr et les sauvegarde en JSON.
 
-<header class="header">
-  <div class="logo">
-    <span class="logo-icon">⛵</span>
-    <span class="logo-text">Wind<strong>Spot</strong></span>
-  </div>
-  <p class="header-tagline">Le meilleur spot selon le vent, maintenant.</p>
-</header>
+Usage:
+  python build_cache.py --all-france
+  python build_cache.py --lat 47.2 --lon -1.5 --radius 300
+"""
+import argparse
+import asyncio
+import json
+import sys
+from pathlib import Path
 
-<main class="main">
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-  <!-- Panneau de recherche -->
-  <aside class="search-panel">
-    <div class="search-card">
-      <h2 class="section-title">Votre recherche</h2>
+from app.services.res_service import (
+    fetch_from_api,
+    normalize_record,
+    is_nautical,
+    save_cache,
+    DATA_DIR,
+)
 
-      <!-- Sport -->
-      <div class="field-group">
-        <label class="field-label">Sport pratiqué</label>
-        <div class="sport-grid" id="sport-selector">
-          <button class="sport-btn active" data-sport="voile">
-            <span class="sport-emoji">⛵</span>
-            <span>Voile</span>
-          </button>
-          <button class="sport-btn" data-sport="planche_a_voile">
-            <span class="sport-emoji">🏄</span>
-            <span>Planche à voile</span>
-          </button>
-          <button class="sport-btn" data-sport="kitesurf">
-            <span class="sport-emoji">🪁</span>
-            <span>Kitesurf</span>
-          </button>
-        </div>
-      </div>
+FULL_FRANCE_BBOX = {
+    "lat": 46.5,
+    "lon": 2.5,
+    "radius_km": 1200,
+}
 
-      <!-- Zone géographique -->
-      <div class="field-group">
-        <label class="field-label">Zone de recherche</label>
-        <div class="geo-inputs">
-          <div class="input-row">
-            <div class="input-wrap">
-              <label class="input-label">Latitude</label>
-              <input type="number" id="lat-input" class="geo-input" step="0.0001"
-                     value="47.2184" placeholder="47.2184">
-            </div>
-            <div class="input-wrap">
-              <label class="input-label">Longitude</label>
-              <input type="number" id="lon-input" class="geo-input" step="0.0001"
-                     value="-1.5536" placeholder="-1.5536">
-            </div>
-          </div>
-          <button class="locate-btn" onclick="geolocate()">
-            📍 Ma position
-          </button>
-        </div>
-      </div>
 
-      <!-- Rayon -->
-      <div class="field-group">
-        <label class="field-label">
-          Rayon de recherche : <strong id="radius-val">50 km</strong>
-        </label>
-        <input type="range" id="radius-input" class="range-input"
-               min="10" max="200" step="10" value="50"
-               oninput="document.getElementById('radius-val').textContent = this.value + ' km'">
-        <div class="range-labels">
-          <span>10 km</span><span>200 km</span>
-        </div>
-      </div>
+async def build_cache_france():
+    """Telecharge tous les equipements nautiques de France."""
+    print("Telechargement des equipements nautiques depuis data.gouv.fr...")
+    print("(Cela peut prendre quelques minutes)\n")
 
-      <!-- Seuil de score -->
-      <div class="field-group">
-        <label class="field-label">
-          Score minimum : <strong id="score-val">40</strong>/100
-        </label>
-        <input type="range" id="score-threshold" class="range-input"
-               min="0" max="90" step="10" value="40"
-               oninput="document.getElementById('score-val').textContent = this.value">
-        <div class="range-labels">
-          <span>Tous</span><span>Excellent seulement</span>
-        </div>
-      </div>
+    raw = await fetch_from_api(
+        lat=FULL_FRANCE_BBOX["lat"],
+        lon=FULL_FRANCE_BBOX["lon"],
+        radius_km=FULL_FRANCE_BBOX["radius_km"],
+    )
+    print(f"OK - {len(raw)} equipements recuperes depuis l'API")
 
-      <button class="search-btn" onclick="doSearch()" id="search-btn">
-        <span class="btn-icon">🔍</span>
-        Rechercher les spots
-      </button>
-    </div>
+    normalized = [normalize_record(r) for r in raw]
+    nautical = [s for s in normalized if is_nautical(s)]
+    print(f"OK - {len(nautical)} equipements nautiques filtres")
 
-    <!-- Profil vent du sport -->
-    <div class="wind-profile-card" id="wind-profile">
-      <h3 class="wind-profile-title">Profil vent — <span id="sport-name">Voile</span></h3>
-      <div class="wind-bars" id="wind-bars"></div>
-    </div>
-  </aside>
+    valid = [s for s in nautical if s.get("latitude") and s.get("longitude")]
+    print(f"OK - {len(valid)} equipements avec coordonnees GPS valides")
 
-  <!-- Zone résultats -->
-  <section class="results-area">
+    save_cache(valid)
+    print(f"\nCache sauvegarde dans {DATA_DIR / 'res_cache.json'}")
+    print(f"{len(valid)} spots prets a l'utilisation.")
 
-    <!-- Carte -->
-    <div class="map-container">
-      <div id="map"></div>
-      <div class="map-overlay" id="map-overlay">
-        <p>Lancez une recherche pour voir les spots sur la carte</p>
-      </div>
-    </div>
 
-    <!-- Stats rapides -->
-    <div class="stats-bar" id="stats-bar" style="display:none">
-      <div class="stat-item">
-        <span class="stat-val" id="stat-total">0</span>
-        <span class="stat-lbl">spots trouvés</span>
-      </div>
-      <div class="stat-item stat-ideal">
-        <span class="stat-val" id="stat-ideal">0</span>
-        <span class="stat-lbl">conditions idéales</span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-val" id="stat-best">—</span>
-        <span class="stat-lbl">meilleur score</span>
-      </div>
-    </div>
+async def build_cache_zone(lat: float, lon: float, radius_km: float):
+    """Telecharge les equipements nautiques dans une zone donnee."""
+    print(f"Telechargement pour la zone ({lat}, {lon}) - rayon {radius_km} km...")
 
-    <!-- Liste des spots -->
-    <div id="results-list" class="results-list"></div>
+    raw = await fetch_from_api(lat=lat, lon=lon, radius_km=radius_km)
+    print(f"OK - {len(raw)} equipements recuperes")
 
-    <!-- État vide -->
-    <div class="empty-state" id="empty-state">
-      <div class="empty-icon">🌊</div>
-      <p>Sélectionnez votre sport et une zone géographique,<br>puis lancez la recherche.</p>
-    </div>
+    normalized = [normalize_record(r) for r in raw]
+    nautical = [s for s in normalized if is_nautical(s)]
+    valid = [s for s in nautical if s.get("latitude") and s.get("longitude")]
+    print(f"OK - {len(valid)} equipements nautiques avec coordonnees GPS")
 
-    <!-- Loading -->
-    <div class="loading" id="loading" style="display:none">
-      <div class="spinner"></div>
-      <p>Analyse des spots et conditions météo en cours…</p>
-    </div>
+    # Fusion avec le cache existant
+    cache_path = DATA_DIR / "res_cache.json"
+    existing = []
+    if cache_path.exists():
+        with open(cache_path) as f:
+            existing = json.load(f)
+        print(f"Cache existant : {len(existing)} entrees")
 
-  </section>
-</main>
+    existing_ids = {s["id"] for s in existing}
+    new_entries = [s for s in valid if s["id"] not in existing_ids]
+    merged = existing + new_entries
+    print(f"{len(new_entries)} nouveaux equipements ajoutes")
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="/static/js/app.js"></script>
-</body>
-</html>
+    save_cache(merged)
+    print(f"\nCache mis a jour : {len(merged)} spots au total")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Construction du cache RES local")
+    parser.add_argument("--all-france", action="store_true",
+                        help="Telecharge toute la France")
+    parser.add_argument("--lat", type=float, help="Latitude du centre")
+    parser.add_argument("--lon", type=float, help="Longitude du centre")
+    parser.add_argument("--radius", type=float, default=200,
+                        help="Rayon en km (defaut: 200)")
+    args = parser.parse_args()
+
+    if args.all_france:
+        asyncio.run(build_cache_france())
+    elif args.lat is not None and args.lon is not None:
+        asyncio.run(build_cache_zone(args.lat, args.lon, args.radius))
+    else:
+        print("Usage:")
+        print("  python build_cache.py --all-france")
+        print("  python build_cache.py --lat 47.2 --lon -1.5 --radius 300")
+        sys.exit(1)
