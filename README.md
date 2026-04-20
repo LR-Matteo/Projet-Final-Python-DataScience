@@ -45,7 +45,7 @@ Seules les variables intervenant dans le calcul du score par sport ont été con
 ## Installation
  
 ```bash
-pip install -r requirements.txt
+pip install -r requirement.txt
 ```
  
 ---
