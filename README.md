@@ -47,8 +47,8 @@ Seules les variables intervenant dans le calcul du score par sport ont été con
 ### 1. Cloner le dépôt
 
 ```bash
-git clone https://github.com/votre-utilisateur/windspot.git
-cd windspot
+git clone https://github.com/LR-Matteo/Projet-Final-Python-DataScience.git
+cd Projet-Final-Python-DataScience
 ```
 
 ### 2. Installer les dépendances
