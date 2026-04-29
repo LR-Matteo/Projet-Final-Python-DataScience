@@ -43,6 +43,15 @@ Seules les variables intervenant dans le calcul du score par sport ont été con
 ---
  
 ## Installation
+
+### 1. Cloner le dépôt
+
+```bash
+git clone https://github.com/votre-utilisateur/windspot.git
+cd windspot
+```
+
+### 2. Installer les dépendances
  
 ```bash
 pip install -r requirement.txt
@@ -79,7 +88,3 @@ Une Analyse en Composantes Principales (ACP) suivie d'un clustering a été appl
 ### 3. Score météo et recommandation
  
 Un score adapté à chaque sport nautique a été construit à partir des variables météo. À partir d'une ville, d'un rayon et d'une discipline, l'application retourne **l'équipement le plus proche affichant les meilleures conditions météo** pour la pratique choisie.
- 
----
- 
- 
